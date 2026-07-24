@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../state/auth.dart';
-import '../widgets/app_footer.dart';
+import '../widgets/auth_scaffold.dart';
+import '../widgets/error_banner.dart';
 
 /// Public lead-capture form. No authentication required.
 class CapturePage extends ConsumerStatefulWidget {
@@ -34,11 +35,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   Future<void> _submit() async {
+    setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
+    setState(() => _submitting = true);
     try {
       await ref.read(apiServiceProvider).createLead({
         'name': _name.text.trim(),
@@ -57,130 +56,119 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Get in touch'),
-        actions: [
-          TextButton(
-            onPressed: () => context.go('/login'),
-            child: const Text('Team login'),
-          ),
-        ],
+    return AuthScaffold(
+      title: 'Get in touch',
+      subtitle: 'Leave your details and our sales team will reach out',
+      topRightAction: TextButton.icon(
+        onPressed: () => context.go('/login'),
+        style: TextButton.styleFrom(foregroundColor: Colors.white),
+        icon: const Icon(Icons.lock_outline, size: 16),
+        label: const Text('Team login'),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: _submitted ? _thankYou(context) : _form(context),
-          ),
-        ),
-      ),
-      bottomNavigationBar: const AppFooter(),
+      child: _submitted ? _thankYou(context) : _form(context),
     );
   }
 
   Widget _thankYou(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle,
-                size: 56, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text('Thanks — we\'ll be in touch!',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text(
-              'Your details have been received by our sales team.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: () => setState(() {
-                _submitted = false;
-                _formKey.currentState?.reset();
-                _name.clear();
-                _email.clear();
-                _phone.clear();
-                _company.clear();
-              }),
-              child: const Text('Submit another'),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.check_circle,
+            size: 56, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 16),
+        Text('Thanks — we\'ll be in touch!',
+            style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        const Text(
+          'Your details have been received by our sales team.',
+          textAlign: TextAlign.center,
         ),
-      ),
+        const SizedBox(height: 20),
+        OutlinedButton(
+          onPressed: () => setState(() {
+            _submitted = false;
+            _formKey.currentState?.reset();
+            _name.clear();
+            _email.clear();
+            _phone.clear();
+            _company.clear();
+          }),
+          child: const Text('Submit another'),
+        ),
+      ],
     );
   }
 
   Widget _form(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Contact our sales team',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              const Text('Leave your details and we\'ll reach out.'),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Full name *'),
-                textInputAction: TextInputAction.next,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _email,
-                decoration: const InputDecoration(labelText: 'Email *'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  final value = v?.trim() ?? '';
-                  if (value.isEmpty) return 'Email is required';
-                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                      .hasMatch(value);
-                  return ok ? null : 'Enter a valid email';
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _company,
-                decoration: const InputDecoration(labelText: 'Company'),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                Text(_error!,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.error)),
-              ],
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Submit'),
-              ),
-            ],
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_error != null) ...[
+            ErrorBanner(_error!),
+            const SizedBox(height: 18),
+          ],
+          _label('Full name *'),
+          TextFormField(
+            controller: _name,
+            decoration: const InputDecoration(hintText: 'Jane Doe'),
+            textInputAction: TextInputAction.next,
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Name is required' : null,
           ),
-        ),
+          const SizedBox(height: 16),
+          _label('Email *'),
+          TextFormField(
+            controller: _email,
+            decoration: const InputDecoration(hintText: 'jane@company.com'),
+            keyboardType: TextInputType.emailAddress,
+            validator: (v) {
+              final value = v?.trim() ?? '';
+              if (value.isEmpty) return 'Email is required';
+              final ok =
+                  RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+              return ok ? null : 'Enter a valid email';
+            },
+          ),
+          const SizedBox(height: 16),
+          _label('Phone'),
+          TextFormField(
+            controller: _phone,
+            decoration: const InputDecoration(hintText: 'Optional'),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          _label('Company'),
+          TextFormField(
+            controller: _company,
+            decoration: const InputDecoration(hintText: 'Optional'),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _submitting ? null : _submit,
+            child: _submitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Submit'),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(text,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ),
+      );
 }
