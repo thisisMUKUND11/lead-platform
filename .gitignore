@@ -1,0 +1,29 @@
+# ── Secrets / env ─────────────────────────────
+.env
+*.env
+!*.env.example
+backend/.env
+frontend/.env
+
+# ── Dart / Dart Frog ──────────────────────────
+.dart_tool/
+.packages
+build/
+backend/.dart_frog/
+
+# ── Flutter ───────────────────────────────────
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.metadata
+frontend/web/flutter_service_worker.js
+
+# ── IDE / OS ──────────────────────────────────
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ── Fly.io ────────────────────────────────────
+fly.toml.bak
