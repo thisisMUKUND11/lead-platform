@@ -35,14 +35,13 @@ jobs:
         working-directory: frontend
         run: flutter pub get
 
-      # API_BASE_URL is a repository variable (Settings → Secrets and
-      # variables → Actions → Variables). Set it to the deployed API root.
+      # The deployed backend API (Render). Public URL, safe to commit.
       - name: Build web
         working-directory: frontend
         run: >-
           flutter build web --release
           --base-href /lead-platform/
-          --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+          --dart-define=API_BASE_URL=https://lead-platform-api-n9kb.onrender.com
 
       - uses: actions/upload-pages-artifact@v3
         with:
