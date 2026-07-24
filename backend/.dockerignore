@@ -1,0 +1,7 @@
+.dart_tool/
+.dart_frog/
+build/
+test/
+.env
+.git/
+*.md

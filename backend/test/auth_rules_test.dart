@@ -72,7 +72,7 @@ void main() {
         method: 'POST',
         jsonBody: {'email': 'admin@test.io', 'password': 'WRONG'},
       );
-      expect(() => login_route.onRequest(ctx), _throwsApi(401));
+      await expectLater(() => login_route.onRequest(ctx), _throwsApi(401));
     });
 
     test('login with unknown email is rejected with 401', () async {
@@ -82,7 +82,7 @@ void main() {
         method: 'POST',
         jsonBody: {'email': 'nobody@test.io', 'password': 'whatever'},
       );
-      expect(() => login_route.onRequest(ctx), _throwsApi(401));
+      await expectLater(() => login_route.onRequest(ctx), _throwsApi(401));
     });
   });
 
@@ -95,7 +95,7 @@ void main() {
         path: '/leads',
         // no principal => unauthenticated
       );
-      expect(() => leads_route.onRequest(ctx), _throwsApi(401));
+      await expectLater(() => leads_route.onRequest(ctx), _throwsApi(401));
     });
 
     test('a member cannot create users (admin-only) -> 403', () async {
@@ -112,7 +112,7 @@ void main() {
         principal: AuthPrincipal(userId: member.id, role: UserRole.member),
         jsonBody: {'email': 'x@test.io', 'name': 'X', 'password': 'pw12345'},
       );
-      expect(() => users_route.onRequest(ctx), _throwsApi(403));
+      await expectLater(() => users_route.onRequest(ctx), _throwsApi(403));
     });
 
     test('a member cannot list users (admin-only) -> 403', () async {
@@ -128,7 +128,7 @@ void main() {
         path: '/users',
         principal: AuthPrincipal(userId: member.id, role: UserRole.member),
       );
-      expect(() => users_route.onRequest(ctx), _throwsApi(403));
+      await expectLater(() => users_route.onRequest(ctx), _throwsApi(403));
     });
 
     test('a member cannot access a lead assigned to someone else -> 403',
@@ -165,7 +165,7 @@ void main() {
 
       // A different member is forbidden.
       final otherCtx = buildTestContext(db: h.db, jwt: h.jwt, method: 'GET');
-      expect(
+      await expectLater(
         () => loadAccessibleLead(
           otherCtx,
           lead.id,
