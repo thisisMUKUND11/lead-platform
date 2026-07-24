@@ -52,4 +52,37 @@ class UserRepository {
     );
     return User.fromRow(result.first.toColumnMap());
   }
+
+  /// Updates a user's name, role and/or password hash. Only non-null fields
+  /// are changed. Passwords are stored hashed and are never readable.
+  Future<User> update(
+    String id, {
+    String? name,
+    UserRole? role,
+    String? passwordHash,
+  }) async {
+    final sets = <String>[];
+    final params = <String, Object?>{'id': id};
+    if (name != null) {
+      sets.add('name = @name');
+      params['name'] = name;
+    }
+    if (role != null) {
+      sets.add('role = @role');
+      params['role'] = role.name;
+    }
+    if (passwordHash != null) {
+      sets.add('password_hash = @hash');
+      params['hash'] = passwordHash;
+    }
+    if (sets.isEmpty) {
+      final existing = await findById(id);
+      return existing!;
+    }
+    final result = await session.execute(
+      Sql.named('UPDATE users SET ${sets.join(', ')} WHERE id = @id RETURNING *'),
+      parameters: params,
+    );
+    return User.fromRow(result.first.toColumnMap());
+  }
 }

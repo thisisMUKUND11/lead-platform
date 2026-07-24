@@ -117,4 +117,21 @@ class ApiService {
     }) as Map<String, dynamic>;
     return User.fromJson(res['user'] as Map<String, dynamic>);
   }
+
+  /// Admin: update a member's name/role and/or reset their password.
+  /// Omit [password] (or pass empty) to leave the password unchanged.
+  Future<User> updateUser(
+    String id, {
+    String? name,
+    String? role,
+    String? password,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (role != null) body['role'] = role;
+    if (password != null && password.isNotEmpty) body['password'] = password;
+    final res =
+        await client.patch('/users/$id', body: body) as Map<String, dynamic>;
+    return User.fromJson(res['user'] as Map<String, dynamic>);
+  }
 }

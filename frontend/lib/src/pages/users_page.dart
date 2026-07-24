@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models.dart';
 import '../state/auth.dart';
 import '../widgets/avatar.dart';
+import '../widgets/password_field.dart';
 import '../widgets/stat_tile.dart';
 
 /// Admin-only: list team members and create new ones.
@@ -178,6 +179,12 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined,
+                size: 20, color: Color(0xFF6B7280)),
+            tooltip: 'Edit member',
+            onPressed: () => _showEditDialog(u),
+          ),
         ],
       ),
     );
@@ -205,6 +212,14 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       builder: (_) => const _NewUserDialog(),
     );
     if (created ?? false) _load();
+  }
+
+  Future<void> _showEditDialog(User user) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (_) => _EditUserDialog(user),
+    );
+    if (updated ?? false) _load();
   }
 }
 
@@ -284,11 +299,9 @@ class _NewUserDialogState extends ConsumerState<_NewUserDialog> {
                 },
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PasswordField(
                 controller: _password,
-                decoration: const InputDecoration(
-                    labelText: 'Password * (min 6 chars)'),
-                obscureText: true,
+                labelText: 'Password * (min 6 chars)',
                 validator: (v) =>
                     (v == null || v.length < 6) ? 'Min 6 characters' : null,
               ),
@@ -320,6 +333,142 @@ class _NewUserDialogState extends ConsumerState<_NewUserDialog> {
         FilledButton(
           onPressed: _saving ? null : _save,
           child: Text(_saving ? 'Saving…' : 'Create'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Admin: edit a member's name/role and reset their password.
+class _EditUserDialog extends ConsumerStatefulWidget {
+  const _EditUserDialog(this.user);
+
+  final User user;
+
+  @override
+  ConsumerState<_EditUserDialog> createState() => _EditUserDialogState();
+}
+
+class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  final _password = TextEditingController();
+  late String _role;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.user.name);
+    _role = widget.user.role.name;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref.read(apiServiceProvider).updateUser(
+            widget.user.id,
+            name: _name.text.trim(),
+            role: _role,
+            password: _password.text,
+          );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _saving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Edit ${widget.user.name}'),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Full name *'),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                initialValue: widget.user.email,
+                enabled: false,
+                decoration:
+                    const InputDecoration(labelText: 'Email (read-only)'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _role,
+                decoration: const InputDecoration(labelText: 'Role'),
+                items: const [
+                  DropdownMenuItem(value: 'member', child: Text('Member')),
+                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                ],
+                onChanged: (v) => setState(() => _role = v ?? 'member'),
+              ),
+              const SizedBox(height: 16),
+              PasswordField(
+                controller: _password,
+                labelText: 'New password (leave blank to keep)',
+                validator: (v) {
+                  if (v == null || v.isEmpty) return null;
+                  return v.length < 6 ? 'Min 6 characters' : null;
+                },
+              ),
+              const SizedBox(height: 8),
+              const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 14, color: Color(0xFF9CA3AF)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      "Passwords are encrypted and can't be viewed. "
+                      'Enter a new one to reset it.',
+                      style:
+                          TextStyle(fontSize: 11.5, color: Color(0xFF9CA3AF)),
+                    ),
+                  ),
+                ],
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? 'Saving…' : 'Save'),
         ),
       ],
     );

@@ -6,6 +6,7 @@ import '../api/api_exception.dart';
 import '../state/auth.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/error_banner.dart';
+import '../widgets/password_field.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -91,10 +92,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             const Text('Password',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 6),
-            TextFormField(
+            PasswordField(
               controller: _password,
-              decoration: const InputDecoration(hintText: '••••••••'),
-              obscureText: true,
+              hintText: '••••••••',
               onFieldSubmitted: (_) => _submit(),
               validator: (v) =>
                   (v == null || v.isEmpty) ? 'Password is required' : null,
