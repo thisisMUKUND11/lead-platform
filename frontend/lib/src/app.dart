@@ -12,11 +12,18 @@ import 'state/auth.dart';
 import 'theme.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider);
+  // Build the router ONCE. Re-running the redirect on auth changes is done via
+  // refreshListenable — recreating the GoRouter would reset navigation to the
+  // initial location ('/') on every login/logout.
+  final refresh = ValueNotifier<int>(0);
+  ref.listen<AuthState>(authControllerProvider, (_, _) => refresh.value++);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final auth = ref.read(authControllerProvider);
       // Wait until we've checked for a persisted session.
       if (auth.initializing) return null;
 
