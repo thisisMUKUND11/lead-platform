@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../models.dart';
 import '../state/auth.dart';
+import '../widgets/avatar.dart';
 import '../widgets/status_chip.dart';
+import '../widgets/stat_tile.dart';
 
 class LeadsPage extends ConsumerStatefulWidget {
   const LeadsPage({super.key});
@@ -26,9 +28,13 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
   Paginated<Lead>? _data;
   Map<String, String> _userNames = {};
 
+  Map<LeadStatus, int>? _counts;
+  bool _statsLoading = true;
+
   @override
   void initState() {
     super.initState();
+    _loadStats();
     _load();
   }
 
@@ -38,6 +44,25 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
     super.dispose();
   }
 
+  Future<void> _loadStats() async {
+    setState(() => _statsLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final results = await Future.wait(
+        LeadStatus.values.map((s) => api.listLeads(status: s.wire, limit: 1)),
+      );
+      final counts = <LeadStatus, int>{};
+      for (var i = 0; i < LeadStatus.values.length; i++) {
+        counts[LeadStatus.values[i]] = results[i].total;
+      }
+      if (mounted) setState(() => _counts = counts);
+    } catch (_) {
+      // Stats are non-critical; ignore failures.
+    } finally {
+      if (mounted) setState(() => _statsLoading = false);
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -45,7 +70,6 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
     });
     try {
       final api = ref.read(apiServiceProvider);
-      // Admins can see everyone's names for the "assigned to" column.
       if (ref.read(authControllerProvider).isAdmin && _userNames.isEmpty) {
         final users = await api.listUsers();
         _userNames = {for (final u in users) u.id: u.name};
@@ -56,9 +80,9 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
         status: _status?.wire,
         search: _searchController.text.trim(),
       );
-      setState(() => _data = data);
+      if (mounted) setState(() => _data = data);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -69,33 +93,110 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
     _load();
   }
 
+  int _sum(List<LeadStatus> ss) =>
+      _counts == null ? 0 : ss.fold(0, (a, s) => a + (_counts![s] ?? 0));
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _header(context),
+          const SizedBox(height: 20),
+          _statRow(),
+          const SizedBox(height: 20),
           _toolbar(context),
           const SizedBox(height: 16),
-          Expanded(child: _body(context)),
+          _table(context),
         ],
       ),
     );
   }
 
-  Widget _toolbar(BuildContext context) {
+  Widget _header(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Leads', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 2),
+              const Text(
+                'Manage and track your sales pipeline',
+                style: TextStyle(color: Color(0xFF6B7280)),
+              ),
+            ],
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: () => _showNewLeadDialog(context),
+          icon: const Icon(Icons.add),
+          label: const Text('New lead'),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statRow() {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        StatTile(
+          label: 'Total leads',
+          value: _sum(LeadStatus.values),
+          icon: Icons.people_alt_outlined,
+          color: const Color(0xFF4F46E5),
+          loading: _statsLoading,
+        ),
+        StatTile(
+          label: 'In pipeline',
+          value: _sum([
+            LeadStatus.newLead,
+            LeadStatus.contacted,
+            LeadStatus.qualified,
+            LeadStatus.proposal,
+          ]),
+          icon: Icons.trending_up,
+          color: const Color(0xFF0EA5A6),
+          loading: _statsLoading,
+        ),
+        StatTile(
+          label: 'Won',
+          value: _sum([LeadStatus.won]),
+          icon: Icons.emoji_events_outlined,
+          color: const Color(0xFF16A34A),
+          loading: _statsLoading,
+        ),
+        StatTile(
+          label: 'Lost',
+          value: _sum([LeadStatus.lost]),
+          icon: Icons.cancel_outlined,
+          color: const Color(0xFFDC2626),
+          loading: _statsLoading,
+        ),
+      ],
+    );
+  }
+
+  Widget _toolbar(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 260,
+          width: 320,
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              labelText: 'Search name, email, company',
+              hintText: 'Search name, email, or company',
               prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.arrow_forward, size: 18),
@@ -105,104 +206,180 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
             onSubmitted: (_) => _resetAndLoad(),
           ),
         ),
-        SizedBox(
-          width: 190,
-          child: DropdownButtonFormField<LeadStatus?>(
-            initialValue: _status,
-            decoration: const InputDecoration(labelText: 'Status'),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('All statuses')),
-              ...LeadStatus.values.map(
-                (s) => DropdownMenuItem(value: s, child: Text(s.label)),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() => _status = value);
-              _resetAndLoad();
-            },
-          ),
-        ),
-        const Spacer(),
-        FilledButton.icon(
-          onPressed: () => _showNewLeadDialog(context),
-          icon: const Icon(Icons.add),
-          label: const Text('New lead'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          children: [
+            _statusChip('All', null),
+            ...LeadStatus.values.map((s) => _statusChip(s.label, s)),
+          ],
         ),
       ],
     );
   }
 
-  Widget _body(BuildContext context) {
+  Widget _statusChip(String label, LeadStatus? status) {
+    final selected = _status == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _status = status);
+        _resetAndLoad();
+      },
+      showCheckmark: false,
+      labelStyle: TextStyle(
+        fontSize: 13,
+        color: selected ? Colors.white : const Color(0xFF374151),
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      ),
+      selectedColor: const Color(0xFF4F46E5),
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: selected ? const Color(0xFF4F46E5) : const Color(0xFFD9DBE9),
+      ),
+    );
+  }
+
+  Widget _table(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
       return _ErrorView(message: _error!, onRetry: _load);
     }
     final data = _data;
     if (data == null || data.items.isEmpty) {
-      return const Center(child: Text('No leads found.'));
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        alignment: Alignment.center,
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: Color(0xFF9CA3AF)),
+            SizedBox(height: 12),
+            Text('No leads found', style: TextStyle(color: Color(0xFF6B7280))),
+          ],
+        ),
+      );
     }
 
     final isAdmin = ref.read(authControllerProvider).isAdmin;
     final df = DateFormat('MMM d, y');
 
-    return Column(
-      children: [
-        Expanded(
-          child: Card(
-            clipBehavior: Clip.antiAlias,
-            child: SingleChildScrollView(
-              child: SizedBox(
-                width: double.infinity,
-                child: DataTable(
-                  showCheckboxColumn: false,
-                  columns: [
-                    const DataColumn(label: Text('Name')),
-                    const DataColumn(label: Text('Company')),
-                    const DataColumn(label: Text('Status')),
-                    if (isAdmin) const DataColumn(label: Text('Assigned to')),
-                    const DataColumn(label: Text('Updated')),
-                  ],
-                  rows: [
-                    for (final lead in data.items)
-                      DataRow(
-                        onSelectChanged: (_) =>
-                            context.go('/app/leads/${lead.id}'),
-                        cells: [
-                          DataCell(Text(lead.name)),
-                          DataCell(Text(lead.company ?? '—')),
-                          DataCell(StatusChip(lead.status)),
-                          if (isAdmin)
-                            DataCell(Text(
-                              lead.assignedTo == null
-                                  ? 'Unassigned'
-                                  : (_userNames[lead.assignedTo] ?? '—'),
-                            )),
-                          DataCell(Text(df.format(lead.updatedAt.toLocal()))),
-                        ],
-                      ),
-                  ],
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: MediaQuery.of(context).size.width - 90,
+              ),
+              child: DataTable(
+                showCheckboxColumn: false,
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9FC)),
+                headingTextStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  color: Color(0xFF6B7280),
                 ),
+                dividerThickness: 1,
+                columns: [
+                  const DataColumn(label: Text('LEAD')),
+                  const DataColumn(label: Text('STATUS')),
+                  if (isAdmin) const DataColumn(label: Text('ASSIGNED TO')),
+                  const DataColumn(label: Text('UPDATED')),
+                  const DataColumn(label: Text('')),
+                ],
+                rows: [
+                  for (final lead in data.items)
+                    DataRow(
+                      onSelectChanged: (_) =>
+                          context.go('/app/leads/${lead.id}'),
+                      cells: [
+                        DataCell(_leadCell(lead)),
+                        DataCell(StatusChip(lead.status)),
+                        if (isAdmin) DataCell(_assignedCell(lead)),
+                        DataCell(Text(df.format(lead.updatedAt.toLocal()))),
+                        const DataCell(
+                          Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        _pagination(data),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: _pagination(data),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _leadCell(Lead lead) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Avatar(lead.name),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(lead.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(
+                lead.company?.isNotEmpty ?? false ? lead.company! : lead.email,
+                style: const TextStyle(
+                    fontSize: 12.5, color: Color(0xFF6B7280)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _assignedCell(Lead lead) {
+    if (lead.assignedTo == null) {
+      return const Text('Unassigned',
+          style: TextStyle(color: Color(0xFF9CA3AF)));
+    }
+    final name = _userNames[lead.assignedTo] ?? '—';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Avatar(name, size: 26),
+        const SizedBox(width: 8),
+        Text(name),
       ],
     );
   }
 
   Widget _pagination(Paginated<Lead> data) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          '${data.total} leads · page ${data.page} of '
-          '${data.totalPages == 0 ? 1 : data.totalPages}',
+          'Showing ${data.items.length} of ${data.total}',
+          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
         ),
-        const SizedBox(width: 16),
+        const Spacer(),
+        Text('Page ${data.page} of ${data.totalPages == 0 ? 1 : data.totalPages}',
+            style: const TextStyle(fontSize: 13)),
+        const SizedBox(width: 8),
         IconButton(
           onPressed: data.page > 1
               ? () {
@@ -230,7 +407,10 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
       context: context,
       builder: (_) => const _NewLeadDialog(),
     );
-    if (created ?? false) _resetAndLoad();
+    if (created ?? false) {
+      _loadStats();
+      _resetAndLoad();
+    }
   }
 }
 
@@ -353,7 +533,10 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 50),
+      alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

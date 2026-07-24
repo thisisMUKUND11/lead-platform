@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../models.dart';
 import '../state/auth.dart';
+import '../widgets/avatar.dart';
+import '../widgets/stat_tile.dart';
 
 /// Admin-only: list team members and create new ones.
 class UsersPage extends ConsumerStatefulWidget {
@@ -30,64 +33,168 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     });
     try {
       final users = await ref.read(apiServiceProvider).listUsers();
-      setState(() => _users = users);
+      if (mounted) setState(() => _users = users);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  int get _admins => _users.where((u) => u.isAdmin).length;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Team', style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Team',
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 2),
+                    const Text('Manage who can access the platform',
+                        style: TextStyle(color: Color(0xFF6B7280))),
+                  ],
+                ),
+              ),
               FilledButton.icon(
                 onPressed: () => _showNewUserDialog(context),
-                icon: const Icon(Icons.person_add),
+                icon: const Icon(Icons.person_add_alt),
                 label: const Text('Add member'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(child: _body()),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              StatTile(
+                label: 'Team members',
+                value: _users.length,
+                icon: Icons.groups_outlined,
+                color: const Color(0xFF4F46E5),
+                loading: _loading,
+              ),
+              StatTile(
+                label: 'Admins',
+                value: _admins,
+                icon: Icons.shield_outlined,
+                color: const Color(0xFF7C3AED),
+                loading: _loading,
+              ),
+              StatTile(
+                label: 'Members',
+                value: _users.length - _admins,
+                icon: Icons.person_outline,
+                color: const Color(0xFF0EA5A6),
+                loading: _loading,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _body(),
         ],
       ),
     );
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 50),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     if (_error != null) {
       return Center(child: Text(_error!));
     }
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: _users.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (_, i) {
-          final u = _users[i];
-          return ListTile(
-            leading: CircleAvatar(
-              child: Text(u.name.isNotEmpty ? u.name[0].toUpperCase() : '?'),
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: _users.map(_memberCard).toList(),
+    );
+  }
+
+  Widget _memberCard(User u) {
+    final df = DateFormat('MMM y');
+    return Container(
+      width: 300,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE9EAF3)),
+      ),
+      child: Row(
+        children: [
+          Avatar(u.name, size: 46),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        u.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    _roleBadge(u.isAdmin),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  u.email,
+                  style:
+                      const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (u.createdAt != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Joined ${df.format(u.createdAt!.toLocal())}',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
+              ],
             ),
-            title: Text(u.name),
-            subtitle: Text(u.email),
-            trailing: Chip(
-              label: Text(u.role.name),
-              visualDensity: VisualDensity.compact,
-            ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roleBadge(bool isAdmin) {
+    final color = isAdmin ? const Color(0xFF7C3AED) : const Color(0xFF0EA5A6);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isAdmin ? 'Admin' : 'Member',
+        style: TextStyle(
+            color: color, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }

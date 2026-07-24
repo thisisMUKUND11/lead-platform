@@ -11,12 +11,14 @@ class User {
     required this.email,
     required this.name,
     required this.role,
+    this.createdAt,
   });
 
   final String id;
   final String email;
   final String name;
   final UserRole role;
+  final DateTime? createdAt;
 
   bool get isAdmin => role == UserRole.admin;
 
@@ -25,6 +27,9 @@ class User {
         email: json['email'] as String,
         name: json['name'] as String,
         role: roleFromString(json['role'] as String),
+        createdAt: json['createdAt'] == null
+            ? null
+            : DateTime.tryParse(json['createdAt'] as String),
       );
 }
 
