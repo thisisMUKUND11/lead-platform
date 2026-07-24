@@ -1,1 +1,12 @@
 include: package:dart_frog_lint/recommended.yaml
+
+linter:
+  rules:
+    # This is a deployable application, not a published package, so we don't
+    # require doc comments on every public member or a top-level library doc.
+    public_member_api_docs: false
+    lines_longer_than_80_chars: false
+    # Constructors returning the type are fine as named static factories here.
+    prefer_constructors_over_static_methods: false
+    # We place `fromRow` factories after fields for readability.
+    sort_constructors_first: false
