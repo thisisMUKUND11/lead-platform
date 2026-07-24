@@ -12,7 +12,7 @@ Built as **one coherent product, end-to-end Dart**:
 |----------|---------------------------------------------------------|
 | Frontend | Flutter Web · Riverpod · go_router                      |
 | API      | Dart Frog — JSON API, self-managed JWT auth (bcrypt)    |
-| Database | Postgres (Supabase)                                     |
+| Database | Postgres (Neon)                                         |
 
 ```
 Flutter Web  ──HTTPS / JSON──▶  Dart Frog API  ──▶  Postgres
@@ -29,8 +29,8 @@ requests — the server is the source of truth.
 
 | | URL |
 |---|---|
-| **App (Flutter web)** | _added after deployment_ |
-| **API** | _added after deployment_ |
+| **App (Flutter web)** | https://lead-platform-silk.vercel.app |
+| **API** | https://lead-platform-api-n9kb.onrender.com |
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -39,6 +39,11 @@ requests — the server is the source of truth.
 
 > The public capture form is the app's landing page (`/`). "Team login" (top
 > right) leads to the authenticated app.
+>
+> **Note:** the API runs on Render's free tier, which sleeps after ~15 min idle.
+> The **first** request after a pause can take ~50s to wake (a "can't reach the
+> server" message may flash on the first login — just retry once). Everything
+> after that is fast.
 
 ---
 
@@ -314,15 +319,26 @@ container for the backend).
 
 ## Deployment
 
-- **Database** — a Supabase Postgres project. Apply the schema and seed once
-  with `dart run bin/migrate.dart` / `bin/seed.dart` against the project URL.
-- **Backend** — Fly.io free tier (`dart_frog build` produces a Docker image).
-  Set `DATABASE_URL` (use Supabase's **transaction pooler** string), `JWT_SECRET`
-  and `CORS_ORIGINS` (your frontend URL) as secrets.
-- **Frontend** — `flutter build web --dart-define=API_BASE_URL=https://<api-host>`
-  and deploy the static `build/web` folder to Cloudflare Pages / Netlify.
+The live demo is deployed entirely on free tiers:
 
-Detailed, copy-pasteable deploy steps are added here once the app is live.
+- **Database — [Neon](https://neon.tech)** (serverless Postgres). Schema + demo
+  data applied once with `dart run bin/migrate.dart` and `dart run bin/seed.dart`
+  against the Neon connection string.
+- **Backend — [Render](https://render.com)** (Docker web service). Render reads
+  [`render.yaml`](render.yaml) to build the [`backend/Dockerfile`](backend/Dockerfile)
+  (`dart_frog build` → compiled server). Secrets set in the dashboard:
+  `DATABASE_URL` (Neon), `CORS_ORIGINS`; `JWT_SECRET` is auto-generated.
+- **Frontend — [Vercel](https://vercel.com)** (static). The Flutter web release
+  build is served via [`vercel.json`](vercel.json); no build step runs on Vercel.
+
+To redeploy the frontend after UI changes:
+
+```bash
+cd frontend
+flutter build web --release --base-href / \
+  --dart-define=API_BASE_URL=https://lead-platform-api-n9kb.onrender.com
+cp -r build/web ../web-dist   # committed; Vercel serves this
+```
 
 ## Environment variables (backend)
 
