@@ -1,0 +1,4 @@
+# The integration tests share a single Postgres database (TEST_DATABASE_URL)
+# and reset it between tests, so they must run one at a time rather than in
+# concurrent isolates.
+concurrency: 1

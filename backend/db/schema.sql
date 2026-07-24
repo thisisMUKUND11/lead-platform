@@ -1,9 +1,10 @@
 -- ════════════════════════════════════════════════════════════════
 -- Lead Management Platform — database schema
 -- Idempotent: safe to run repeatedly (CREATE ... IF NOT EXISTS).
+--
+-- gen_random_uuid() is built into PostgreSQL core (>= v13), so no
+-- extension is required.
 -- ════════════════════════════════════════════════════════════════
-
-create extension if not exists pgcrypto;  -- for gen_random_uuid()
 
 -- ── users ───────────────────────────────────────────────────────
 create table if not exists users (
