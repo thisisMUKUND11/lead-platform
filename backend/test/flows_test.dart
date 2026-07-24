@@ -60,8 +60,8 @@ void main() {
       // Activity trail has exactly one "created" entry.
       final activities =
           await ActivityRepository(h.db.session).listForLead(stored.id);
-      expect(activities, hasLength(1));
-      expect(activities.single.type, 'created');
+      expect(activities.items, hasLength(1));
+      expect(activities.items.single.type, 'created');
     });
 
     test('rejects a submission with an invalid email (400)', () async {
@@ -128,18 +128,18 @@ void main() {
 
       // Note is persisted and attributed.
       final notes = await NoteRepository(h.db.session).listForLead(lead.id);
-      expect(notes, hasLength(1));
-      expect(notes.single.authorId, member.id);
+      expect(notes.items, hasLength(1));
+      expect(notes.items.single.authorId, member.id);
 
       // Activity trail contains all four events (newest first).
       final activities =
           await ActivityRepository(h.db.session).listForLead(lead.id);
-      final types = activities.map((a) => a.type).toList();
+      final types = activities.items.map((a) => a.type).toList();
       expect(types, ['note_added', 'status_changed', 'assigned', 'created']);
 
       // The status_changed entry captures the transition detail.
       final statusChange =
-          activities.firstWhere((a) => a.type == 'status_changed');
+          activities.items.firstWhere((a) => a.type == 'status_changed');
       expect(statusChange.metadata['from'], 'new');
       expect(statusChange.metadata['to'], 'contacted');
     });

@@ -63,6 +63,7 @@ class Lead {
     this.company,
     this.source,
     this.assignedTo,
+    this.assignedToName,
     this.createdBy,
   });
 
@@ -74,6 +75,7 @@ class Lead {
   final String? source;
   final LeadStatus status;
   final String? assignedTo;
+  final String? assignedToName;
   final String? createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -87,6 +89,7 @@ class Lead {
         source: json['source'] as String?,
         status: LeadStatus.fromWire(json['status'] as String),
         assignedTo: json['assignedTo'] as String?,
+        assignedToName: json['assignedToName'] as String?,
         createdBy: json['createdBy'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),

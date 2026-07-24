@@ -26,7 +26,6 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
   bool _loading = true;
   String? _error;
   Paginated<Lead>? _data;
-  Map<String, String> _userNames = {};
 
   Map<LeadStatus, int>? _counts;
   bool _statsLoading = true;
@@ -70,10 +69,6 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
     });
     try {
       final api = ref.read(apiServiceProvider);
-      if (ref.read(authControllerProvider).isAdmin && _userNames.isEmpty) {
-        final users = await api.listUsers();
-        _userNames = {for (final u in users) u.id: u.name};
-      }
       final data = await api.listLeads(
         page: _page,
         limit: _limit,
@@ -358,7 +353,7 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
       return const Text('Unassigned',
           style: TextStyle(color: Color(0xFF9CA3AF)));
     }
-    final name = _userNames[lead.assignedTo] ?? '—';
+    final name = lead.assignedToName ?? '—';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

@@ -16,13 +16,18 @@ Future<Response> onRequest(RequestContext context, String id) async {
   };
 }
 
-/// GET /leads/:id/notes — timestamped notes, newest first.
+/// GET /leads/:id/notes — timestamped notes, newest first (paginated).
 Future<Response> _list(RequestContext context, String id) async {
   final principal = requireAuth(context);
   await loadAccessibleLead(context, id, principal: principal);
+  final pagination = readPagination(context, defaultLimit: 50);
   final db = context.read<Database>();
-  final notes = await NoteRepository(db.session).listForLead(id);
-  return ok({'data': notes.map((n) => n.toJson()).toList()});
+  final notes = await NoteRepository(db.session).listForLead(
+    id,
+    page: pagination.page,
+    limit: pagination.limit,
+  );
+  return ok(notes.toJson((n) => n.toJson()));
 }
 
 /// POST /leads/:id/notes — add a note (also appends to the activity trail).

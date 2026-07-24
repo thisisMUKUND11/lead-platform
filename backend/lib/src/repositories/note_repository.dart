@@ -1,4 +1,5 @@
 import 'package:backend/src/models/note.dart';
+import 'package:backend/src/repositories/page.dart';
 import 'package:postgres/postgres.dart';
 
 class NoteRepository {
@@ -6,7 +7,18 @@ class NoteRepository {
 
   final Session session;
 
-  Future<List<LeadNote>> listForLead(String leadId) async {
+  Future<Page<LeadNote>> listForLead(
+    String leadId, {
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final countResult = await session.execute(
+      Sql.named('SELECT COUNT(*) AS n FROM lead_notes WHERE lead_id = @leadId'),
+      parameters: {'leadId': leadId},
+    );
+    final total = (countResult.first.toColumnMap()['n'] as int?) ?? 0;
+
+    final offset = (page - 1) * limit;
     final rows = await session.execute(
       Sql.named('''
         SELECT n.*, u.name AS author_name
@@ -14,10 +26,16 @@ class NoteRepository {
         LEFT JOIN users u ON u.id = n.author_id
         WHERE n.lead_id = @leadId
         ORDER BY n.created_at DESC
+        LIMIT @limit OFFSET @offset
       '''),
-      parameters: {'leadId': leadId},
+      parameters: {'leadId': leadId, 'limit': limit, 'offset': offset},
     );
-    return rows.map((r) => LeadNote.fromRow(r.toColumnMap())).toList();
+    return Page(
+      items: rows.map((r) => LeadNote.fromRow(r.toColumnMap())).toList(),
+      total: total,
+      page: page,
+      limit: limit,
+    );
   }
 
   Future<LeadNote> create({

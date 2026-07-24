@@ -165,6 +165,7 @@ All responses are JSON. Authenticated requests send `Authorization: Bearer <toke
 | 404 | Resource not found |
 | 405 | Method not allowed |
 | 409 | Conflict (e.g. duplicate email) |
+| 429 | Too many requests (public capture form is rate-limited) |
 | 500 | Unexpected server error |
 
 ### Endpoints
@@ -179,11 +180,17 @@ All responses are JSON. Authenticated requests send `Authorization: Bearer <toke
 | `PATCH` | `/leads/:id` | member(if assigned)/admin | 200 |
 | `POST` | `/leads/:id/assign` | admin | 200 |
 | `DELETE` | `/leads/:id` | admin | 204 |
-| `GET` | `/leads/:id/notes` | member(if assigned)/admin | 200 |
+| `GET` | `/leads/:id/notes` | member(if assigned)/admin | 200 (paginated) |
 | `POST` | `/leads/:id/notes` | member(if assigned)/admin | 201 |
-| `GET` | `/leads/:id/activities` | member(if assigned)/admin | 200 |
+| `GET` | `/leads/:id/activities` | member(if assigned)/admin | 200 (paginated) |
 | `GET` | `/users` | admin | 200 |
 | `POST` | `/users` | admin | 201 |
+| `PATCH` | `/users/:id` | admin | 200 |
+
+Every lead payload includes a denormalized **`assignedToName`** (joined from the
+users table) so clients don't need a second request to display the assignee.
+`GET /leads/:id/notes` and `/activities` accept `?page` & `?limit` and return the
+same pagination envelope as `/leads`.
 
 #### `POST /auth/login`
 ```json
@@ -199,9 +206,10 @@ All responses are JSON. Authenticated requests send `Authorization: Bearer <toke
 // request
 { "name": "Jane Buyer", "email": "jane@acme.io", "phone": "555-0100", "company": "Acme", "source": "public_form" }
 // 201
-{ "lead": { "id": "...", "status": "new", "assignedTo": null, "createdBy": null, "...": "..." } }
+{ "lead": { "id": "...", "status": "new", "assignedTo": null, "assignedToName": null, "createdBy": null, "...": "..." } }
 ```
-`400` if `name` is empty or `email` is invalid.
+`400` if `name` is empty or `email` is invalid. This public endpoint is
+**rate-limited** to 10 submissions per minute per IP (`429` when exceeded).
 
 #### `GET /leads`  (list — paginated & filterable)
 Query params:

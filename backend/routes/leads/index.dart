@@ -2,6 +2,7 @@ import 'package:backend/src/auth/auth_principal.dart';
 import 'package:backend/src/db/database.dart';
 import 'package:backend/src/http/api_exception.dart';
 import 'package:backend/src/http/guards.dart';
+import 'package:backend/src/http/rate_limiter.dart';
 import 'package:backend/src/http/request_helpers.dart';
 import 'package:backend/src/http/responses.dart';
 import 'package:backend/src/models/lead.dart';
@@ -53,6 +54,15 @@ Future<Response> _list(RequestContext context) async {
 
 /// POST /leads — public lead capture. No authentication required.
 Future<Response> _create(RequestContext context) async {
+  // Throttle the public endpoint to curb spam/abuse.
+  if (!publicSubmissionLimiter.allow(clientIp(context))) {
+    throw ApiException(
+      429,
+      'Too many submissions. Please wait a minute and try again.',
+      code: 'rate_limited',
+    );
+  }
+
   final body = await readJsonBody(context);
   final name = (body['name'] as String?)?.trim();
   final email = (body['email'] as String?)?.trim();

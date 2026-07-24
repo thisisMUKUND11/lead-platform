@@ -31,6 +31,7 @@ class Lead {
     this.company,
     this.source,
     this.assignedTo,
+    this.assignedToName,
     this.createdBy,
   });
 
@@ -42,6 +43,9 @@ class Lead {
   final String? source;
   final LeadStatus status;
   final String? assignedTo;
+
+  /// Joined from users for display; null when unassigned or the user is gone.
+  final String? assignedToName;
   final String? createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -56,6 +60,7 @@ class Lead {
       source: row['source'] as String?,
       status: LeadStatus.fromString(row['status'] as String),
       assignedTo: row['assigned_to']?.toString(),
+      assignedToName: row['assigned_to_name'] as String?,
       createdBy: row['created_by']?.toString(),
       createdAt: row['created_at'] as DateTime,
       updatedAt: row['updated_at'] as DateTime,
@@ -71,6 +76,7 @@ class Lead {
         'source': source,
         'status': status.wire,
         'assignedTo': assignedTo,
+        'assignedToName': assignedToName,
         'createdBy': createdBy,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),

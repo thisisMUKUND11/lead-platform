@@ -1,4 +1,5 @@
 import 'package:backend/src/models/lead.dart';
+import 'package:backend/src/repositories/page.dart';
 import 'package:postgres/postgres.dart';
 
 /// Filters accepted by [LeadRepository.list]. All are optional (AND-combined).
@@ -18,37 +19,17 @@ class LeadFilter {
   final String? search;
 }
 
-/// A page of results plus the total count of matching rows.
-class Page<T> {
-  const Page({
-    required this.items,
-    required this.total,
-    required this.page,
-    required this.limit,
-  });
-
-  final List<T> items;
-  final int total;
-  final int page;
-  final int limit;
-
-  int get totalPages => limit == 0 ? 0 : (total + limit - 1) ~/ limit;
-
-  Map<String, dynamic> toJson(Object? Function(T) itemToJson) => {
-        'data': items.map(itemToJson).toList(),
-        'pagination': {
-          'page': page,
-          'limit': limit,
-          'total': total,
-          'totalPages': totalPages,
-        },
-      };
-}
-
 class LeadRepository {
   LeadRepository(this.session);
 
   final Session session;
+
+  // Reusable projection that joins the assignee's display name.
+  static const _selectWithAssignee = '''
+    SELECT l.*, au.name AS assigned_to_name
+    FROM leads l
+    LEFT JOIN users au ON au.id = l.assigned_to
+  ''';
 
   Future<Page<Lead>> list({
     required LeadFilter filter,
@@ -58,21 +39,23 @@ class LeadRepository {
     final conditions = <String>[];
     final params = <String, Object?>{};
 
+    // Columns are qualified with `l.` because the users join also exposes
+    // name/email.
     if (filter.status != null) {
-      conditions.add('status = @status');
+      conditions.add('l.status = @status');
       params['status'] = filter.status;
     }
     if (filter.assignedTo != null) {
-      conditions.add('assigned_to = @assignedTo');
+      conditions.add('l.assigned_to = @assignedTo');
       params['assignedTo'] = filter.assignedTo;
     }
     if (filter.source != null) {
-      conditions.add('source = @source');
+      conditions.add('l.source = @source');
       params['source'] = filter.source;
     }
     if (filter.search != null && filter.search!.trim().isNotEmpty) {
       conditions.add(
-        '(name ILIKE @q OR email ILIKE @q OR company ILIKE @q)',
+        '(l.name ILIKE @q OR l.email ILIKE @q OR l.company ILIKE @q)',
       );
       params['q'] = '%${filter.search!.trim()}%';
     }
@@ -81,7 +64,7 @@ class LeadRepository {
         conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}';
 
     final countResult = await session.execute(
-      Sql.named('SELECT COUNT(*) AS n FROM leads $where'),
+      Sql.named('SELECT COUNT(*) AS n FROM leads l $where'),
       parameters: params,
     );
     final total = (countResult.first.toColumnMap()['n'] as int?) ?? 0;
@@ -89,9 +72,9 @@ class LeadRepository {
     final offset = (page - 1) * limit;
     final rows = await session.execute(
       Sql.named('''
-        SELECT * FROM leads
+        $_selectWithAssignee
         $where
-        ORDER BY created_at DESC
+        ORDER BY l.created_at DESC
         LIMIT @limit OFFSET @offset
       '''),
       parameters: {...params, 'limit': limit, 'offset': offset},
@@ -107,7 +90,7 @@ class LeadRepository {
 
   Future<Lead?> findById(String id) async {
     final result = await session.execute(
-      Sql.named('SELECT * FROM leads WHERE id = @id'),
+      Sql.named('$_selectWithAssignee WHERE l.id = @id'),
       parameters: {'id': id},
     );
     if (result.isEmpty) return null;
@@ -124,9 +107,13 @@ class LeadRepository {
   }) async {
     final result = await session.execute(
       Sql.named('''
-        INSERT INTO leads (name, email, phone, company, source, created_by)
-        VALUES (@name, @email, @phone, @company, @source, @createdBy)
-        RETURNING *
+        WITH ins AS (
+          INSERT INTO leads (name, email, phone, company, source, created_by)
+          VALUES (@name, @email, @phone, @company, @source, @createdBy)
+          RETURNING *
+        )
+        SELECT ins.*, au.name AS assigned_to_name
+        FROM ins LEFT JOIN users au ON au.id = ins.assigned_to
       '''),
       parameters: {
         'name': name,
@@ -152,7 +139,13 @@ class LeadRepository {
     }
     sets.add('updated_at = now()');
     final result = await session.execute(
-      Sql.named('UPDATE leads SET ${sets.join(', ')} WHERE id = @id RETURNING *'),
+      Sql.named('''
+        WITH upd AS (
+          UPDATE leads SET ${sets.join(', ')} WHERE id = @id RETURNING *
+        )
+        SELECT upd.*, au.name AS assigned_to_name
+        FROM upd LEFT JOIN users au ON au.id = upd.assigned_to
+      '''),
       parameters: params,
     );
     return Lead.fromRow(result.first.toColumnMap());
@@ -161,8 +154,12 @@ class LeadRepository {
   Future<Lead> assign(String id, String? userId) async {
     final result = await session.execute(
       Sql.named('''
-        UPDATE leads SET assigned_to = @userId, updated_at = now()
-        WHERE id = @id RETURNING *
+        WITH upd AS (
+          UPDATE leads SET assigned_to = @userId, updated_at = now()
+          WHERE id = @id RETURNING *
+        )
+        SELECT upd.*, au.name AS assigned_to_name
+        FROM upd LEFT JOIN users au ON au.id = upd.assigned_to
       '''),
       parameters: {'id': id, 'userId': userId},
     );
