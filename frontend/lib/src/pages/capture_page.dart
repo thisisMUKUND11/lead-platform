@@ -133,17 +133,27 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             },
           ),
           const SizedBox(height: 16),
-          _label('Phone'),
+          _label('Phone *'),
           TextFormField(
             controller: _phone,
-            decoration: const InputDecoration(hintText: 'Optional'),
+            decoration: const InputDecoration(hintText: 'e.g. +1 555 123 4567'),
             keyboardType: TextInputType.phone,
+            validator: (v) {
+              final value = v?.trim() ?? '';
+              if (value.isEmpty) return 'Phone is required';
+              if (!RegExp(r'^[0-9+()\-\s]{7,}$').hasMatch(value)) {
+                return 'Enter a valid phone number';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 16),
-          _label('Company'),
+          _label('Company *'),
           TextFormField(
             controller: _company,
-            decoration: const InputDecoration(hintText: 'Optional'),
+            decoration: const InputDecoration(hintText: 'Your company name'),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Company is required' : null,
           ),
           const SizedBox(height: 24),
           FilledButton(

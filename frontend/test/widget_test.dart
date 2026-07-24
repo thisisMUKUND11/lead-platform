@@ -25,6 +25,8 @@ void main() {
 
       expect(find.text('Name is required'), findsOneWidget);
       expect(find.text('Email is required'), findsOneWidget);
+      expect(find.text('Phone is required'), findsOneWidget);
+      expect(find.text('Company is required'), findsOneWidget);
     });
 
     testWidgets('rejects an invalid email', (tester) async {
