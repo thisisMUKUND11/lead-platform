@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:frontend/main.dart';
+import 'package:frontend/src/pages/capture_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Widget wrap(Widget child) =>
+      ProviderScope(child: MaterialApp(home: child));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  group('Public capture form validation', () {
+    testWidgets('shows errors when submitting an empty form', (tester) async {
+      await tester.pumpWidget(wrap(const CapturePage()));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Submit'));
+      await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      expect(find.text('Name is required'), findsOneWidget);
+      expect(find.text('Email is required'), findsOneWidget);
+    });
+
+    testWidgets('rejects an invalid email', (tester) async {
+      await tester.pumpWidget(wrap(const CapturePage()));
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full name *'),
+        'Jordan',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email *'),
+        'not-an-email',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Submit'));
+      await tester.pump();
+
+      expect(find.text('Enter a valid email'), findsOneWidget);
+      expect(find.text('Name is required'), findsNothing);
+    });
   });
 }
