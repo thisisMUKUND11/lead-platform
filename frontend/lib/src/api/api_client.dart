@@ -18,6 +18,10 @@ class ApiClient {
 
   String? token;
 
+  /// Called when an *authenticated* request is rejected with 401 (expired or
+  /// invalid token) so the app can end the session and return to login.
+  void Function()? onUnauthorized;
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
@@ -81,6 +85,13 @@ class ApiClient {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
+    }
+
+    // An authenticated request rejected with 401 means the session expired —
+    // notify the app to log out. (A 401 from login has no token, so it's
+    // ignored here and surfaces as a normal "invalid credentials" error.)
+    if (response.statusCode == 401 && token != null) {
+      onUnauthorized?.call();
     }
 
     // Error envelope: { "error": { "message": ..., "code": ... } }

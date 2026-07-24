@@ -325,6 +325,34 @@ container for the backend).
 
 ---
 
+## Design decisions & trade-offs
+
+Conscious choices made for this build, and what a larger production system would
+do differently:
+
+- **End-to-end Dart** (Flutter + Dart Frog) — one language and mental model
+  across the stack, at the cost of a smaller ecosystem than, say, Node.
+- **Self-managed JWT vs. a hosted auth provider** — a single 12h HS256 token,
+  so the permission logic is explicit and testable. The client auto-logs-out on
+  any `401`. Trade-off: no silent refresh, and the token lives in `localStorage`
+  (XSS-exposed). Production would use short-lived access + refresh tokens in
+  `httpOnly` cookies.
+- **Server-authoritative permissions** — the client hides UI by role, but the
+  API independently enforces every rule (covered by tests). Passwords are
+  bcrypt-hashed and never returned; admins **reset**, never view them.
+- **Transactional activity trail** — each mutation and its audit row commit in
+  the same transaction, so the log can never drift from the data.
+- **`ILIKE` search vs. full-text** — simple and fine at this scale; a `pg_trgm`
+  or `tsvector` index would be added for large datasets.
+- **Idempotent `schema.sql` vs. migration tooling** — safe to re-run for a
+  single-schema app; a versioned migrations table would come with schema churn.
+- **Denormalized `assignedToName`** — joined into lead payloads to save a
+  round-trip, accepting a touch of duplication.
+- **In-memory rate limiting** — per-IP on the single instance; a multi-instance
+  deployment would use a shared store (Redis).
+- **Free-tier hosting** — Vercel + Render + Neon. The backend sleeps when idle
+  (~50s cold start); a paid always-on instance removes that.
+
 ## Deployment
 
 The live demo is deployed entirely on free tiers:

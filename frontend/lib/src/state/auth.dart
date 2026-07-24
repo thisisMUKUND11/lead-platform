@@ -71,14 +71,24 @@ class AuthController extends StateNotifier<AuthState> {
     await prefs.remove(_tokenKey);
     state = const AuthState();
   }
+
+  /// Called by the API client when a request returns 401 (token expired).
+  /// Ends the session so the router sends the user back to login.
+  void handleSessionExpired() {
+    if (!state.isAuthenticated) return;
+    _client.token = null;
+    state = const AuthState();
+    // Clear the persisted token in the background.
+    SharedPreferences.getInstance().then((p) => p.remove(_tokenKey));
+  }
 }
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
-  final controller = AuthController(
-    ref.watch(apiServiceProvider),
-    ref.watch(apiClientProvider),
-  );
+  final client = ref.watch(apiClientProvider);
+  final controller = AuthController(ref.watch(apiServiceProvider), client);
+  // Log out automatically if any authenticated request returns 401.
+  client.onUnauthorized = controller.handleSessionExpired;
   controller.restore();
   return controller;
 });

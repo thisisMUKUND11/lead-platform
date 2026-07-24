@@ -85,4 +85,19 @@ class UserRepository {
     );
     return User.fromRow(result.first.toColumnMap());
   }
+
+  /// Number of admins — used to guard against deleting the last one.
+  Future<int> adminCount() async {
+    final result = await session.execute(
+      "SELECT COUNT(*) AS n FROM users WHERE role = 'admin'",
+    );
+    return (result.first.toColumnMap()['n'] as int?) ?? 0;
+  }
+
+  Future<void> delete(String id) async {
+    await session.execute(
+      Sql.named('DELETE FROM users WHERE id = @id'),
+      parameters: {'id': id},
+    );
+  }
 }

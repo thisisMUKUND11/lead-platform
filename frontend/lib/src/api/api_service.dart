@@ -134,4 +134,7 @@ class ApiService {
         await client.patch('/users/$id', body: body) as Map<String, dynamic>;
     return User.fromJson(res['user'] as Map<String, dynamic>);
   }
+
+  /// Admin: remove a team member.
+  Future<void> deleteUser(String id) => client.delete('/users/$id');
 }

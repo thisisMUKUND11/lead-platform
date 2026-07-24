@@ -179,11 +179,21 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined,
+          PopupMenuButton<String>(
+            tooltip: 'Actions',
+            icon: const Icon(Icons.more_vert,
                 size: 20, color: Color(0xFF6B7280)),
-            tooltip: 'Edit member',
-            onPressed: () => _showEditDialog(u),
+            onSelected: (v) {
+              if (v == 'edit') _showEditDialog(u);
+              if (v == 'delete') _confirmDelete(u);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit')),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
         ],
       ),
@@ -220,6 +230,41 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       builder: (_) => _EditUserDialog(user),
     );
     if (updated ?? false) _load();
+  }
+
+  Future<void> _confirmDelete(User u) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${u.name}?'),
+        content: const Text(
+          'This removes their access. Their leads and history are kept — '
+          'reassign their leads if needed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(apiServiceProvider).deleteUser(u.id);
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 }
 
