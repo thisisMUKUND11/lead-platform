@@ -50,15 +50,34 @@ class ApiClient {
   }
 
   Future<dynamic> _send(Future<http.Response> Function() request) async {
-    final http.Response response;
-    try {
-      response = await request();
-    } catch (e) {
-      throw ApiException(0, 'Network error: unable to reach the server');
+    // Retry on network failure — the free-tier backend may be cold-starting
+    // (waking from sleep), which can drop the first request or two.
+    http.Response? response;
+    const delays = [Duration(seconds: 2), Duration(seconds: 4)];
+    for (var attempt = 0; ; attempt++) {
+      try {
+        response = await request();
+        break;
+      } catch (_) {
+        if (attempt >= delays.length) {
+          throw const ApiException(
+            0,
+            'Network error: unable to reach the server',
+          );
+        }
+        await Future<void>.delayed(delays[attempt]);
+      }
     }
 
-    final hasBody = response.body.isNotEmpty;
-    final decoded = hasBody ? jsonDecode(response.body) : null;
+    // Decode defensively: a proxy or cold-start page may return non-JSON.
+    dynamic decoded;
+    if (response.body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = null;
+      }
+    }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
