@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../state/auth.dart';
+import '../widgets/app_footer.dart';
 
 /// Chrome around the authenticated app: top nav + role-aware links + logout.
 class AppShell extends ConsumerWidget {
@@ -73,6 +74,7 @@ class AppShell extends ConsumerWidget {
         ],
       ),
       body: child,
+      bottomNavigationBar: const AppFooter(),
     );
   }
 }

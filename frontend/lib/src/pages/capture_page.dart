@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../state/auth.dart';
+import '../widgets/app_footer.dart';
 
 /// Public lead-capture form. No authentication required.
 class CapturePage extends ConsumerStatefulWidget {
@@ -75,6 +76,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           ),
         ),
       ),
+      bottomNavigationBar: const AppFooter(),
     );
   }
 
