@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models.dart';
 import '../state/auth.dart';
 import '../widgets/avatar.dart';
+import '../widgets/loading.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/stat_tile.dart';
 
@@ -93,6 +94,10 @@ class _LeadsPageState extends ConsumerState<LeadsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // First entry: show a clean full-page loader instead of a bare spinner.
+    if (_loading && _data == null) {
+      return const AppLoader(message: 'Loading your leads…');
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(

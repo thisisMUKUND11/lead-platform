@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models.dart';
 import '../state/auth.dart';
 import '../widgets/avatar.dart';
+import '../widgets/loading.dart';
 import '../widgets/status_chip.dart';
 
 class LeadDetailPage extends ConsumerStatefulWidget {
@@ -126,7 +127,7 @@ class _LeadDetailPageState extends ConsumerState<LeadDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoader(message: 'Loading lead…');
     }
     if (_error != null || _lead == null) {
       return Center(

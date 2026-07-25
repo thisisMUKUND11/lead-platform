@@ -6,6 +6,7 @@ import '../api/api_exception.dart';
 import '../state/auth.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/error_banner.dart';
+import '../widgets/loading.dart';
 import '../widgets/password_field.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -59,6 +60,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _scaffold(context),
+        if (_submitting)
+          const BlurLoadingOverlay(message: 'Signing you in…'),
+      ],
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     return AuthScaffold(
       title: 'Welcome back',
       subtitle: 'Sign in to manage your leads',

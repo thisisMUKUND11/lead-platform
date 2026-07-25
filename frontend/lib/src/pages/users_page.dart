@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models.dart';
 import '../state/auth.dart';
 import '../widgets/avatar.dart';
+import '../widgets/loading.dart';
 import '../widgets/password_field.dart';
 import '../widgets/stat_tile.dart';
 
@@ -46,6 +47,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading && _users.isEmpty) {
+      return const AppLoader(message: 'Loading your team…');
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
